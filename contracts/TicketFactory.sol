@@ -72,6 +72,7 @@ contract TicketFactory is IERC721Metadata, ERC721, Ownable, ReentrancyGuard {
       require(false, "exhaustive check");
     }
 
+    tokenIds.increment();
     uint256 newItemId = tokenIds.current();
     _mint(_ticketCreator, newItemId);
     // we will also need another function to support calling this setTokenURI to be
