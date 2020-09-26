@@ -1,4 +1,4 @@
-const {assert} = require("console");
+var assert = require("assert");
 
 const TicketFactory = artifacts.require("TicketFactory.sol");
 const TestXP = artifacts.require("TestXP.sol");
