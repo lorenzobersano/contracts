@@ -56,3 +56,8 @@ contract("TicketFactory", ([owner, ...accounts]) => {
     assert.equal(account1XpBal.toString(), String(2 * 1e18));
   });
 });
+
+// todo:
+// 1. ensure ticket creator receives an nft
+// 2. the id counter is incremented correctly (obsolete, but just check once)
+// 3. host/guest access nft

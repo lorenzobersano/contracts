@@ -19,8 +19,15 @@ contract TicketFactory is IERC721Metadata, ERC721, Ownable, ReentrancyGuard {
   address public xpCollector; // when guest pays for ticket, XP tokens get sent here
   Counters.Counter private tokenIds; // to keep track of the number of NFTs we have minted
 
+  // if you are wondering how you can call functions that use Solidity enums,
+  // then these enums get converted into uint. So twoMins is 0, fiveMins is 1 and so on
   enum Duration {twoMins, fiveMins, tenMins}
 
+  mapping(uint256 => bool) public expiredExperience;
+
+  // we have xpCollector that later distributes the Host's reward share so
+  // that noone tries to hack us by calling functions that redirect the reward
+  // to them. We control where it goes at all times
   constructor(
     address _xpToken,
     address _xpCollector,
@@ -77,6 +84,7 @@ contract TicketFactory is IERC721Metadata, ERC721, Ownable, ReentrancyGuard {
 
     tokenIds.increment();
     uint256 newItemId = tokenIds.current();
+
     _mint(_ticketCreator, newItemId);
     // we will also need another function to support calling this setTokenURI to be
     // able to set the vrf hash to generate the QR code
@@ -84,7 +92,35 @@ contract TicketFactory is IERC721Metadata, ERC721, Ownable, ReentrancyGuard {
 
     return newItemId;
   }
-}
 
-// TODO: minting of the access tokens based off the above created token
-// to: enable the guest and the host to access the event
+  // anyone can call this. but! only one person at a time can do this
+  // this is a limitation right now. we can fix it later, such that
+  // we will have an array of people interested in hosting
+  // and we then get the guest to pick (based on reputation, for example)
+  // who to go with. They then mint the access tokens
+  // -----
+  // once again, the client is responsible for creating the properties (as per)
+  // schema mentioned earlier, and passing it to this method
+  function createAccessToEvent(
+    uint256 _ticketId,
+    string memory _props,
+    address host
+  ) external nonReentrant returns (bool) {
+    require(_ticketId < tokenIds.current(), "no such experience token");
+    require(expiredExperience[_ticketId] == false, "experience expired");
+
+    _mint(host, 1);
+    // this is the original creator of the ticket
+    _mint(ownerOf(_ticketId), 2);
+
+    // right now the properties are the same for both the guest and the host
+    // we may want to change this in the future
+    // also, it is not quite economically sensible to mint two NFTs. After all,
+    // the creator of the original ticket can use that as authorization
+    // from collectible pov, it makes sense to mint two NFTs here
+    _setTokenURI(1, _props);
+    _setTokenURI(2, _props);
+
+    return true;
+  }
+}
