@@ -28,6 +28,7 @@ contract TicketFactory is IERC721Metadata, ERC721, Ownable, ReentrancyGuard {
     string memory _symbol
   ) public ERC721(_name, _symbol) {
     xpToken = _xpToken;
+    // we avoid directly sending them the host the xp tokens
     xpCollector = _xpCollector;
   }
 
@@ -39,11 +40,13 @@ contract TicketFactory is IERC721Metadata, ERC721, Ownable, ReentrancyGuard {
   // 3. description
   // 4. duration (enum Duration)
   // find the schema definition to conform to here: https://eips.ethereum.org/EIPS/eip-721
-  function createTicket(
-    Duration _duration,
-    string memory _props,
-    address _ticketCreator
-  ) external payable nonReentrant returns (uint256) {
+  function createTicket(Duration _duration, string memory _props)
+    external
+    payable
+    nonReentrant
+    returns (uint256)
+  {
+    address _ticketCreator = msg.sender;
     uint256 balanceBefore = ERC20(xpToken).balanceOf(xpCollector);
     uint256 balanceAfter;
 
