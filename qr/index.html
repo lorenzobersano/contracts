@@ -54,3 +54,16 @@
     </script>
   </body>
 </html>
+
+// this is a verified smart contract on Kovan // it uses Chainlink's Verifiable
+Randomness to generate a unique ticket QR URL that non-crypto users can easily
+scan and access the platform to read up on the experience // here is the
+technical flow // Imagine I am a host - i want to create an experience for
+myself. I love Whiskey, I want someone to give me a live tour in Scotland //
+createTicket function will get called. This will withdraw the XP tokens from me
+and will get redirected to an address that will be reponsible for
+re-distributing the reward to the host // we need to make another call to obtain
+entropy from Chainlink to generate a QR code for the event // once a host picks
+up this ticket on the platform, we will generate two access NFTs for them to
+attend this event // to generate these NFTs there must exist an NFT with the
+provided address and token ID

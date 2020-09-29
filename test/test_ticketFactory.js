@@ -26,12 +26,12 @@ contract("TicketFactory", ([owner, ...accounts]) => {
 
     // this ensures that ticket creator has 100 XP tokens
     const account0XpBal = await this.xpToken.balanceOf(accounts[0]);
-    assert.equal(account0XpBal.toString(), String(100 * 1e18));
+    assert.strictEqual(account0XpBal.toString(), String(100 * 1e18));
   });
 
   it("initialized correctly", async () => {
     const contractOwner = await this.factory.owner();
-    assert.equal(contractOwner, owner);
+    assert.strictEqual(contractOwner, owner);
   });
 
   it("creates nft ticket correctly", async () => {
@@ -51,9 +51,9 @@ contract("TicketFactory", ([owner, ...accounts]) => {
     // this means our contract took 2 XP from creator and forwarded it
     // to xpCollector. Which is account 1 here
     const account0XpBal = await this.xpToken.balanceOf(accounts[0]);
-    assert.equal(account0XpBal.toString(), String(98 * 1e18));
+    assert.strictEqual(account0XpBal.toString(), String(98 * 1e18));
     const account1XpBal = await this.xpToken.balanceOf(accounts[1]);
-    assert.equal(account1XpBal.toString(), String(2 * 1e18));
+    assert.strictEqual(account1XpBal.toString(), String(2 * 1e18));
   });
 });
 
