@@ -110,5 +110,5 @@ build/
 .DS_Store
 
 .env.develop
-.lib/
+lib/
 *.db

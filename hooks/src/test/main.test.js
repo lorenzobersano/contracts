@@ -7,13 +7,12 @@ const {
 } = require("../index");
 
 const payIntoWallet = async () => {
+  // * this is how to set up web3 with a private key for automatic ECDSA
+  // * signing of the messages
   const provider = new Web3.providers.HttpProvider(
     `https://kovan.infura.io/v3/${process.env.INFURA_KEY}`
   );
   const web3 = new Web3(provider);
-
-  // * this is how to set up web3 with a private key for automatic ECDSA
-  // * signing of the messages
 
   // ! this may be quite dangerous to do in the mobile app
   // ! if your phone is compromised through a hack, your funds are lost
@@ -23,18 +22,12 @@ const payIntoWallet = async () => {
   web3.eth.accounts.wallet.add(account);
   web3.eth.defaultAccount = account.address;
 
-  // -------- PAYING INTO OUR CONTRACT ---------------- //
-
   await payEth({
     ethAmount: 0.01,
     senderAddress: web3.defaultAccount,
     senderUserId: 0,
     web3
   });
-};
-
-const createDbTable = () => {
-  createTable();
 };
 
 // to update, you would just call this same function, but with a
@@ -48,7 +41,7 @@ const getUserExpBalance = async () => {
   console.debug(data);
 };
 
-createDbTable();
+createTable();
 updateUserBalance();
 getUserExpBalance();
 // payIntoWallet();
