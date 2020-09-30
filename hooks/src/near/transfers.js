@@ -12,8 +12,10 @@ import Web3 from 'web3';
 
 import * as urlParams from './urlParams';
 
-import erc20Abi from './abis/erc20.abi';
-import tokenLockerAbi from './abis/TokenLocker.full.abi';
+import erc20Abi from './abis/ERC20.json';
+import tokenLockerAbi from './abis/TokenLocker.full.json';
+
+// console.log(JSON.parse(erc20Abi));
 
 // ---- INIT ----
 // * window.web3: constructing a Proof of the `Locked` event currently has deep
@@ -33,8 +35,8 @@ import tokenLockerAbi from './abis/TokenLocker.full.abi';
 // * window.ethErc20Name: used to fill in error messages when tranfers fail
 var window = {};
 
-process.env.ethErc20AbiText = erc20Abi;
-process.env.ethLockerAbiText = tokenLockerAbi;
+// process.env.ethErc20AbiText = erc20Abi;
+// process.env.ethLockerAbiText = tokenLockerAbi;
 
 // Initiate a new transfer of 'amount' ERC20 tokens to NEAR.
 // Currently depends on many global variables:
@@ -214,14 +216,17 @@ export const init = async () => {
   );
   window.web3.eth.accounts.wallet.add(account);
   window.web3.eth.defaultAccount = account.address;
-
   window.ethUserAddress = window.web3.eth.defaultAccount;
 
   window.erc20 = new window.web3.eth.Contract(
-    JSON.parse(process.env.ethErc20AbiText),
+    // text was Json.parsed
+    // process.env.ethErc20AbiText,
+    erc20Abi,
     process.env.ethErc20Address,
     { from: window.ethUserAddress }
   );
+
+  console.debug('web3 instantiated');
 
   try {
     window.ethErc20Name = await window.erc20.methods.symbol().call();
@@ -230,12 +235,15 @@ export const init = async () => {
   }
 
   window.tokenLocker = new window.web3.eth.Contract(
-    JSON.parse(process.env.ethLockerAbiText),
+    // text was Json.parsed
+    // process.env.ethLockerAbiText,
+    tokenLockerAbi,
     process.env.ethLockerAddress,
     { from: window.ethUserAddress }
   );
-
   window.ethInitialized = true;
+
+  console.debug('eth is initialized');
 
   // authNear
   // Create a Near config object
