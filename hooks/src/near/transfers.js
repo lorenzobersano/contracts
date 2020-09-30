@@ -3,14 +3,19 @@ import BN from 'bn.js';
 import { encode } from 'eth-util-lite';
 import { Header, Proof, Receipt, Log } from 'eth-object';
 import { promisfy } from 'promisfy';
-import { ulid } from 'ulid';
+// import { ulid } from 'ulid';
 import utils from 'ethereumjs-util';
-import * as urlParams from './urlParams';
-import getRevertReason from 'eth-revert-reason';
+// import getRevertReason from 'eth-revert-reason';
+import { Contract, keyStores, WalletConnection, Near } from 'near-api-js';
+import EthOnNearClient from './borsh/ethOnNearClient';
+import Web3 from 'web3';
 
-// Initiate a new transfer of 'amount' ERC20 tokens to NEAR.
-// Currently depends on many global variables:
-//
+import * as urlParams from './urlParams';
+
+import erc20Abi from './abis/erc20.abi';
+import tokenLockerAbi from './abis/TokenLocker.full.abi';
+
+// ---- INIT ----
 // * window.web3: constructing a Proof of the `Locked` event currently has deep
 //   coupling with the web3.js library. Make initialized library available here.
 // * window.erc20: a web3.js `Contract` instance for ERC20 token at address
@@ -26,124 +31,21 @@ import getRevertReason from 'eth-revert-reason';
 // * window.ethUserAddress: address of authenticated Ethereum wallet to send from
 // * window.nearUserAddress: address of authenticated NEAR wallet to send to
 // * window.ethErc20Name: used to fill in error messages when tranfers fail
+var window = {};
+
+process.env.ethErc20AbiText = erc20Abi;
+process.env.ethLockerAbiText = tokenLockerAbi;
+
+// Initiate a new transfer of 'amount' ERC20 tokens to NEAR.
+// Currently depends on many global variables:
 export async function initiate(amount, callback) {
-  const approvalHash = await initiateApproval(amount);
-  const transfer = {
-    amount,
-    // currently hard-coding neededConfirmations until MintableFungibleToken is
-    // updated with this information
-    neededConfirmations: 10,
-    status: INITIATED_APPROVAL,
-    approvalHash,
-  };
-  track(transfer, callback);
-}
-
-// The only way to retrieve a list of transfers.
-// Returns an object with 'inProgress' and 'complete' keys,
-// and an array of chronologically-ordered transfers for each
-export function get() {
-  const raw = getRaw();
-  return Object.keys(raw)
-    .sort()
-    .reduce(
-      (acc, id) => {
-        const transfer = raw[id];
-
-        if (transfer.status === 'complete') acc.complete.push(transfer);
-        else acc.inProgress.push(transfer);
-
-        return acc;
-      },
-      { inProgress: [], complete: [] }
-    );
+  // const approvalHash = await initiateApproval(amount);
+  await initiateApproval(amount);
 }
 
 // Return a human-readable description of the status for a given transfer
 export function humanStatusFor(transfer) {
   return statusMessages[transfer.status](transfer);
-}
-
-// Check statuses of all inProgress transfers, and update them accordingly.
-// Accepts an optional callback, which will be called after all transfers have
-// been checked & updated.
-export async function checkStatuses(callback) {
-  // First, check if we've just returned to this page from NEAR Wallet after
-  // completing a transfer. Do this outside of main Promise.all to
-  //
-  //   1. avoid race conditions
-  //   2. check retried failed transfers, which are not inProgress
-  const { minting, balanceBefore } = urlParams.get('minting', 'balanceBefore');
-  if (minting) {
-    const transfer = getRaw()[minting];
-    if (transfer) {
-      const balanceAfter = Number(
-        await window.nep21.get_balance({ owner_id: window.nearUserAddress })
-      );
-      if (balanceAfter - transfer.amount === Number(balanceBefore)) {
-        update(transfer, { status: COMPLETE, outcome: SUCCESS });
-      } else {
-        update(transfer, {
-          status: COMPLETE,
-          outcome: FAILED,
-          failedAt: LOCKED,
-          error: `Minting ${'n' + window.ethErc20Name} failed`,
-        });
-      }
-    }
-    urlParams.clear('minting', 'balanceBefore');
-    if (callback) await callback();
-  }
-
-  const { inProgress } = get();
-
-  // if all transfers successful, nothing to do
-  if (!inProgress.length) return;
-
-  // Check & update statuses for all in parallel.
-  // Do not pass callback, only call it once after all updated.
-  await Promise.all(inProgress.map((t) => checkStatus(t.id)));
-
-  if (callback) await callback();
-
-  // recheck statuses again soon
-  window.setTimeout(() => checkStatuses(callback), 5500);
-}
-
-// Retry a failed transfer
-export async function retry(id, callback) {
-  let transfer = getRaw()[id];
-
-  transfer = update(transfer, {
-    status: transfer.failedAt,
-    outcome: null,
-    error: null,
-    failedAt: null,
-  });
-
-  switch (transfer.status) {
-    case INITIATED_APPROVAL:
-      update(transfer, {
-        approvalHash: await initiateApproval(transfer.amount),
-      });
-      break;
-    case INITIATED_LOCK:
-      // TODO: re-check previous lock attempt. Maybe it worked now?
-      update(transfer, {
-        lockHash: await initiateLock(transfer.amount),
-      });
-      break;
-    case LOCKED:
-      mint(transfer);
-      break;
-    default:
-      alert(
-        `Do not know how to retry transfer that failed at ${transfer.status} 😞`
-      );
-  }
-
-  if (callback) await callback();
-  checkStatus(id, callback);
 }
 
 // Clear a transfer from localStorage
@@ -160,27 +62,12 @@ function getRaw() {
   return localStorage.get(STORAGE_KEY) || {};
 }
 
-// Add a new transfer to the set of cached local transfers.
-// This transfer will be given a chronologically-ordered id.
-// This transfer will be checked for updates, which, if given a callback, will
-// kick off timed re-checks.
-async function track(transferRaw, callback) {
-  const id = ulid();
-  const transfer = { id, ...transferRaw };
-
-  localStorage.set(STORAGE_KEY, { ...getRaw(), [id]: transfer });
-
-  if (callback) await callback();
-  checkStatus(id, callback);
-}
-
 // transfer statuses & outcomes
 const INITIATED_APPROVAL = 'initiated_approval';
 const INITIATED_LOCK = 'initiated_lock';
 const LOCKED = 'locked';
 const COMPLETE = 'complete';
 const SUCCESS = 'success';
-const FAILED = 'failed';
 
 // statuses used in humanStatusFor.
 // Might be internationalized or moved to separate library in the future.
@@ -192,17 +79,6 @@ const statusMessages = {
   [COMPLETE]: ({ outcome, error }) =>
     outcome === SUCCESS ? 'Success!' : error,
 };
-
-// update a given transfer in localStorage, returning a new object with the
-// updated version
-function update(transfer, withData) {
-  const updatedTransfer = { ...transfer, ...withData };
-  localStorage.set(STORAGE_KEY, {
-    ...getRaw(),
-    [transfer.id]: updatedTransfer,
-  });
-  return updatedTransfer;
-}
 
 // Call window.erc20, requesting permission for window.tokenLocker to transfer
 // 'amount' tokens on behalf of the default erc20 user set up in
@@ -232,118 +108,6 @@ function initiateLock(amount) {
       .on('transactionHash', resolve)
       .catch(reject);
   });
-}
-
-// check the status of a single transfer
-// if `callback` is provided:
-//   * it will be called after updating the status in localStorage
-//   * a new call to checkStatus will be scheduled for this transfer, if its status is not SUCCESS
-async function checkStatus(id, callback) {
-  let transfer = getRaw()[id];
-
-  if (transfer.status === INITIATED_APPROVAL) {
-    const approvalReceipt = await window.web3.eth.getTransactionReceipt(
-      transfer.approvalHash
-    );
-
-    if (approvalReceipt) {
-      if (approvalReceipt.status) {
-        const lockHash = await initiateLock(transfer.amount);
-        transfer = update(transfer, {
-          status: INITIATED_LOCK,
-          approvalReceipt,
-          lockHash,
-        });
-      } else {
-        const error = await getRevertReason(
-          transfer.approvalHash,
-          process.env.ethNetwork
-        );
-        transfer = update(transfer, {
-          status: COMPLETE,
-          outcome: FAILED,
-          failedAt: INITIATED_APPROVAL,
-          error,
-          approvalReceipt,
-        });
-      }
-    }
-  }
-
-  if (transfer.status === INITIATED_LOCK) {
-    const lockReceipt = await window.web3.eth.getTransactionReceipt(
-      transfer.lockHash
-    );
-
-    if (lockReceipt) {
-      if (lockReceipt.status) {
-        transfer = update(transfer, {
-          status: LOCKED,
-          progress: 0,
-          lockReceipt,
-        });
-      } else {
-        const error = await getRevertReason(
-          transfer.lockHash,
-          process.env.ethNetwork
-        );
-        transfer = update(transfer, {
-          status: COMPLETE,
-          outcome: FAILED,
-          failedAt: INITIATED_LOCK,
-          error,
-          lockReceipt,
-        });
-      }
-    }
-  }
-
-  if (transfer.status === LOCKED) {
-    const eventEmittedAt = transfer.lockReceipt.blockNumber;
-    const syncedTo = (
-      await window.ethOnNearClient.last_block_number()
-    ).toNumber();
-    const progress = Math.max(0, syncedTo - eventEmittedAt);
-    transfer = update(transfer, { progress });
-
-    if (progress >= transfer.neededConfirmations) {
-      // The number of confirmations needed is currently configured in the
-      // EthOnNearClient, but will be moved to individual Connector Contracts
-      // in the future. See https://github.com/near/rainbow-bridge-rs/issues/3
-      //
-      // At that point, `block_hash_safe` will go away and this logic will need
-      // to be refactored to query MintableFungibleToken for the number of
-      // needed confirmations, rather than hard-coding 10
-      const isSafe = await window.ethOnNearClient.block_hash_safe(
-        transfer.lockReceipt.blockNumber
-      );
-      if (isSafe) {
-        try {
-          await mint(transfer);
-        } catch (error) {
-          console.error(error);
-          transfer = update(transfer, {
-            status: COMPLETE,
-            outcome: FAILED,
-            failedAt: LOCKED,
-            error: error.message,
-          });
-        }
-      }
-    }
-  }
-
-  // if successfully transfered, call callback and end
-  if (transfer.status === COMPLETE) {
-    if (callback) await callback();
-    return;
-  }
-
-  // if not fully transferred and callback passed in, check status again soon
-  if (callback) {
-    await callback();
-    window.setTimeout(() => checkStatus(transfer.id, callback), 5500);
-  }
 }
 
 // Mint NEP21 tokens to window.nearUserAddress after successfully locking them
@@ -435,3 +199,77 @@ async function extractProof(block, tree, transactionIndex) {
     txIndex: transactionIndex,
   };
 }
+
+export const init = async () => {
+  // eth
+  // logging into web3 with a private key
+  window.web3 = new Web3(
+    new Web3.providers.HttpProvider(
+      `https://kovan.infura.io/v3/${process.env.INFURA_KEY}`
+    )
+  );
+  const privateKey = process.env.PRIVATE_KEY;
+  const account = window.web3.eth.accounts.privateKeyToAccount(
+    '0x' + privateKey
+  );
+  window.web3.eth.accounts.wallet.add(account);
+  window.web3.eth.defaultAccount = account.address;
+
+  window.ethUserAddress = window.web3.eth.defaultAccount;
+
+  window.erc20 = new window.web3.eth.Contract(
+    JSON.parse(process.env.ethErc20AbiText),
+    process.env.ethErc20Address,
+    { from: window.ethUserAddress }
+  );
+
+  try {
+    window.ethErc20Name = await window.erc20.methods.symbol().call();
+  } catch (e) {
+    window.ethErc20Name = process.env.ethErc20Address.slice(0, 5) + '…';
+  }
+
+  window.tokenLocker = new window.web3.eth.Contract(
+    JSON.parse(process.env.ethLockerAbiText),
+    process.env.ethLockerAddress,
+    { from: window.ethUserAddress }
+  );
+
+  window.ethInitialized = true;
+
+  // authNear
+  // Create a Near config object
+  const near = new Near({
+    keyStore: new keyStores.BrowserLocalStorageKeyStore(),
+    networkId: process.env.nearNetworkId,
+    nodeUrl: process.env.nearNodeUrl,
+    helperUrl: process.env.nearHelperUrl,
+    walletUrl: process.env.nearWalletUrl,
+  });
+
+  // Initialize main interface to NEAR network
+  window.nearConnection = new WalletConnection(near);
+
+  // Getting the Account ID. If still unauthorized, it's an empty string
+  window.nearUserAddress = window.nearConnection.getAccountId();
+  // How to sign in without the prompt?
+  window.nearConnection.requestSignIn(process.env.nearFunTokenAccount);
+
+  window.nep21 = await new Contract(
+    window.nearConnection.account(),
+    process.env.nearFunTokenAccount,
+    {
+      // View methods are read only
+      viewMethods: ['get_balance'],
+      // Change methods modify state but don't receive updated data
+      changeMethods: ['mint_with_json'],
+    }
+  );
+
+  window.ethOnNearClient = await new EthOnNearClient(
+    window.nearConnection.account(),
+    process.env.nearClientAccount
+  );
+
+  window.nearInitialized = true;
+};

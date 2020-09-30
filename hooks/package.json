@@ -7,7 +7,8 @@
     "build": "./node_modules/.bin/babel src -d lib",
     "test": "yarn build && source src/.env.develop && ./node_modules/.bin/node lib/test/main.test.js",
     "lint": "./node_modules/.bin/eslint --fix '**/*.{js,jsx,ts,tsx}'",
-    "format": "./node_modules/.bin/prettier --write '**/*.{js,jsx,ts,tsx,json,css,md}'"
+    "format": "./node_modules/.bin/prettier --write '**/*.{js,jsx,ts,tsx,json,css,md}'",
+    "near-start": ""
   },
   "dependencies": {
     "@babel/eslint-parser": "^7.11.5",

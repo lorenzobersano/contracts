@@ -112,3 +112,4 @@ build/
 .env.develop
 lib/
 *.db
+hooks/src/.example
