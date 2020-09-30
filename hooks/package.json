@@ -12,7 +12,16 @@
   "dependencies": {
     "@babel/eslint-parser": "^7.11.5",
     "aws-sdk": "^2.763.0",
+    "bn.js": "^5.1.3",
+    "eth-object": "^1.0.3",
+    "eth-revert-reason": "^1.0.3",
+    "eth-util-lite": "^1.0.1",
+    "ethereumjs-util": "^7.0.5",
+    "merkle-patricia-tree": "^4.0.0",
     "node": "^14.12.0",
+    "promisfy": "^1.2.0",
+    "rainbow-bridge-sol": "1.1.0",
+    "ulid": "^2.3.0",
     "web3": "^1.3.0"
   },
   "devDependencies": {
