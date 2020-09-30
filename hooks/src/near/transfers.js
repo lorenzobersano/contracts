@@ -6,7 +6,13 @@ import { promisfy } from 'promisfy';
 // import { ulid } from 'ulid';
 import utils from 'ethereumjs-util';
 // import getRevertReason from 'eth-revert-reason';
-import { Contract, keyStores, WalletConnection, Near } from 'near-api-js';
+import {
+  Contract,
+  keyStores,
+  WalletConnection,
+  Near,
+  KeyPair,
+} from 'near-api-js';
 import EthOnNearClient from './borsh/ethOnNearClient';
 import Web3 from 'web3';
 
@@ -45,42 +51,12 @@ export async function initiate(amount, callback) {
   await initiateApproval(amount);
 }
 
-// Return a human-readable description of the status for a given transfer
-export function humanStatusFor(transfer) {
-  return statusMessages[transfer.status](transfer);
-}
-
-// Clear a transfer from localStorage
-export function clear(id) {
-  const transfers = getRaw();
-  delete transfers[id];
-  localStorage.set(STORAGE_KEY, transfers);
-}
-
-const STORAGE_KEY = 'rainbow-bridge-transfers';
-
-// Get raw transfers, stored in localStorage as an object indexed by keys
-function getRaw() {
-  return localStorage.get(STORAGE_KEY) || {};
-}
-
 // transfer statuses & outcomes
 const INITIATED_APPROVAL = 'initiated_approval';
 const INITIATED_LOCK = 'initiated_lock';
 const LOCKED = 'locked';
 const COMPLETE = 'complete';
 const SUCCESS = 'success';
-
-// statuses used in humanStatusFor.
-// Might be internationalized or moved to separate library in the future.
-const statusMessages = {
-  [INITIATED_APPROVAL]: () => 'approving TokenLocker',
-  [INITIATED_LOCK]: () => 'locking',
-  [LOCKED]: ({ progress, neededConfirmations }) =>
-    `${progress}/${neededConfirmations} blocks synced`,
-  [COMPLETE]: ({ outcome, error }) =>
-    outcome === SUCCESS ? 'Success!' : error,
-};
 
 // Call window.erc20, requesting permission for window.tokenLocker to transfer
 // 'amount' tokens on behalf of the default erc20 user set up in
@@ -119,7 +95,7 @@ async function mint(transfer) {
   const balanceBefore = Number(
     await window.nep21.get_balance({ owner_id: window.nearUserAddress })
   );
-  urlParams.set({ minting: transfer.id, balanceBefore });
+  // urlParams.set({ minting: transfer.id, balanceBefore });
 
   const proof = await findProof(transfer);
 
@@ -247,8 +223,12 @@ export const init = async () => {
 
   // authNear
   // Create a Near config object
+  const keyStore = new keyStores.InMemoryKeyStore();
+  const keyPair = KeyPair.fromString(process.env.NEAR_PRIVATE_KEY);
+  keyStore.setKey('testnet', process.env.NEAR_ACCOUNT_ID, keyPair);
+
   const near = new Near({
-    keyStore: new keyStores.BrowserLocalStorageKeyStore(),
+    keyStore,
     networkId: process.env.nearNetworkId,
     nodeUrl: process.env.nearNodeUrl,
     helperUrl: process.env.nearHelperUrl,
@@ -256,28 +236,30 @@ export const init = async () => {
   });
 
   // Initialize main interface to NEAR network
-  window.nearConnection = new WalletConnection(near);
+  // window.nearConnection = new WalletConnection(near);
 
-  // Getting the Account ID. If still unauthorized, it's an empty string
-  window.nearUserAddress = window.nearConnection.getAccountId();
-  // How to sign in without the prompt?
-  window.nearConnection.requestSignIn(process.env.nearFunTokenAccount);
+  // // Getting the Account ID. If still unauthorized, it's an empty string
+  // window.nearUserAddress = process.env.NEAR_ACCOUNT_ID;
+  // // How to sign in without the prompt?
+  // // window.nearConnection.requestSignIn(process.env.nearFunTokenAccount);
 
-  window.nep21 = await new Contract(
-    window.nearConnection.account(),
-    process.env.nearFunTokenAccount,
-    {
-      // View methods are read only
-      viewMethods: ['get_balance'],
-      // Change methods modify state but don't receive updated data
-      changeMethods: ['mint_with_json'],
-    }
-  );
+  // window.nep21 = await new Contract(
+  //   window.nearConnection.account(),
+  //   process.env.nearFunTokenAccount,
+  //   {
+  //     // View methods are read only
+  //     viewMethods: ['get_balance'],
+  //     // Change methods modify state but don't receive updated data
+  //     changeMethods: ['mint_with_json'],
+  //   }
+  // );
 
-  window.ethOnNearClient = await new EthOnNearClient(
-    window.nearConnection.account(),
-    process.env.nearClientAccount
-  );
+  // window.ethOnNearClient = await new EthOnNearClient(
+  //   window.nearConnection.account(),
+  //   process.env.nearClientAccount
+  // );
 
-  window.nearInitialized = true;
+  // window.nearInitialized = true;
+
+  console.debug('near is initialized');
 };
