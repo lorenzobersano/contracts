@@ -1,18 +1,22 @@
 {
   "name": "@intootv/hooks",
   "version": "1.0.0",
-  "main": "index.ts",
+  "main": "index.js",
   "license": "MIT",
   "dependencies": {
-    "@types/node": "^14.11.2",
-    "@types/react": "^16.9.49",
-    "@types/web3": "^1.2.2",
+    "aws-sdk": "^2.763.0",
     "node": "^14.12.0",
-    "react": "^16.13.1",
-    "typescript": "^4.0.3",
     "web3": "^1.3.0"
   },
   "scripts": {
-    "test": "tsc test/test_interaction.ts && source .env.develop && node test/test_interaction.js"
+    "build": "babel src -d lib",
+    "test": "yarn build && source src/.env.develop && node lib/test/testMain.js"
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.11.6",
+    "@babel/core": "^7.11.6",
+    "@babel/preset-env": "^7.11.5",
+    "core-js": "^3.6.5",
+    "regenerator-runtime": "^0.13.7"
   }
 }

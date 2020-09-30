@@ -110,6 +110,5 @@ build/
 .DS_Store
 
 .env.develop
-
-hooks/*.js
-hooks/**/*.js
+.lib/
+*.db
