@@ -1,11 +1,12 @@
-const Web3 = require("web3");
+const Web3 = require('web3');
 const {
   payEth,
   createTable,
   putUserExpBalance,
-  getUserBalance
-} = require("../index");
+  getUserBalance,
+} = require('../index');
 
+// eslint-disable-next-line no-unused-vars
 const payIntoWallet = async () => {
   // * this is how to set up web3 with a private key for automatic ECDSA
   // * signing of the messages
@@ -18,7 +19,7 @@ const payIntoWallet = async () => {
   // ! if your phone is compromised through a hack, your funds are lost
   // !!! This is a fake private key for testing purposes. do not use
   const privateKey = process.env.PRIVATE_KEY;
-  const account = web3.eth.accounts.privateKeyToAccount("0x" + privateKey);
+  const account = web3.eth.accounts.privateKeyToAccount('0x' + privateKey);
   web3.eth.accounts.wallet.add(account);
   web3.eth.defaultAccount = account.address;
 
@@ -26,14 +27,14 @@ const payIntoWallet = async () => {
     ethAmount: 0.01,
     senderAddress: web3.defaultAccount,
     senderUserId: 0,
-    web3
+    web3,
   });
 };
 
 // to update, you would just call this same function, but with a
 // different expBalance value
 const updateUserBalance = () => {
-  putUserExpBalance({userId: 0, expBalance: 20});
+  putUserExpBalance({ userId: 0, expBalance: 20 });
 };
 
 const getUserExpBalance = async () => {

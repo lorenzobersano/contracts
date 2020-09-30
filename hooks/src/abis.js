@@ -1,6 +1,5 @@
-import {AbiItem} from "web3-utils";
-import PassThroughWallet from "../build/contracts/PassThroughWallet.json";
-import TicketFactory from "../build/contracts/TicketFactory.json";
+import PassThroughWallet from '../build/contracts/PassThroughWallet.json';
+import TicketFactory from '../build/contracts/TicketFactory.json';
 
 // type abisType = {
 //   passThroughWallet: AbiItem,
@@ -13,5 +12,5 @@ export const abis = {
   // @ts-ignore
   passThroughWallet: PassThroughWallet.abi,
   // @ts-ignore
-  ticketFactory: TicketFactory.abi
+  ticketFactory: TicketFactory.abi,
 };
