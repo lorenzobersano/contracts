@@ -33,13 +33,3 @@ You will need to have specified AWS env keys (check out the [.env.develop.exampl
 ## React-Native AWS-SDK
 
 See [here](https://www.npmjs.com/package/aws-sdk)
-
-## Note
-
-If you are on VSCode eslint may be complaining about babelrc. This is because we are in a subpackage. Add this to your root `.vscode/settings.json`
-
-```json
-{
-  "eslint.workingDirectories": ["./hooks"]
-}
-```
