@@ -1,8 +1,8 @@
 //SPDX-License-Identifier: MIT
 pragma solidity ^0.6.0;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import '@openzeppelin/contracts/access/Ownable.sol';
+import '@openzeppelin/contracts/utils/ReentrancyGuard.sol';
 
 contract PassThroughWallet is Ownable, ReentrancyGuard {
   /// @notice Logs the address of the sender and amounts paid to the contract
@@ -22,7 +22,7 @@ contract PassThroughWallet is Ownable, ReentrancyGuard {
     nonReentrant
     returns (bool transferSuccess)
   {
-    require(address(this).balance >= amount, "insufficient balance");
+    require(address(this).balance >= amount, 'insufficient balance');
     to.transfer(amount);
 
     Withdraw(to, amount);
