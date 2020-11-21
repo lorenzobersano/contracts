@@ -18,7 +18,7 @@
  *
  */
 
-const HDWalletProvider = require("@truffle/hdwallet-provider");
+const HDWalletProvider = require('@truffle/hdwallet-provider');
 const infuraKey = process.env.INFURA_KEY;
 const mnemonic = process.env.MNEMONIC;
 const etherscanKey = process.env.ETHERSCAN_API_KEY;
@@ -42,16 +42,16 @@ module.exports = {
     // options below to some value.
     //
     development: {
-      host: "127.0.0.1", // Localhost (default: none)
+      host: '127.0.0.1', // Localhost (default: none)
       port: 7545, // Standard Ethereum port (default: none)
-      network_id: "*" // Any network (default: none)
+      network_id: '*', // Any network (default: none)
     },
     // Another network with more advanced options...
     advanced: {
       port: 8777, // Custom port
       network_id: 1342, // Custom network
       gas: 8500000, // Gas sent with each transaction (default: ~6700000)
-      gasPrice: 20000000000 // 20 gwei (in wei) (default: 100 gwei)
+      gasPrice: 20000000000, // 20 gwei (in wei) (default: 100 gwei)
       // from: <address>,        // Account to send txs from (default: accounts[0])
       // websockets: true        // Enable EventEmitter interface for web3 (default: false)
     },
@@ -67,7 +67,7 @@ module.exports = {
       gas: 5500000, // Ropsten has a lower block limit than mainnet
       confirmations: 2, // # of confs to wait between deployments. (default: 0)
       timeoutBlocks: 200, // # of blocks before a deployment times out  (minimum/default: 50)
-      skipDryRun: true // Skip dry run before migrations? (default: false for public nets )
+      skipDryRun: true, // Skip dry run before migrations? (default: false for public nets )
     },
     kovan: {
       provider: () =>
@@ -79,14 +79,14 @@ module.exports = {
       gas: 5500000, // Ropsten has a lower block limit than mainnet
       confirmations: 2, // # of confs to wait between deployments. (default: 0)
       timeoutBlocks: 200, // # of blocks before a deployment times out  (minimum/default: 50)
-      skipDryRun: true // Skip dry run before migrations? (default: false for public nets )
+      skipDryRun: true, // Skip dry run before migrations? (default: false for public nets )
     },
     // Useful for private networks
     private: {
       provider: () => new HDWalletProvider(mnemonic, `https://network.io`),
       network_id: 2111, // This network is yours, in the cloud.
-      production: true // Treats this network as if it was a public net. (default: false)
-    }
+      production: true, // Treats this network as if it was a public net. (default: false)
+    },
   },
 
   // Set default mocha options here, use special reporters etc.
@@ -97,7 +97,7 @@ module.exports = {
   // Configure your compilers
   compilers: {
     solc: {
-      version: "0.6.12" // Fetch exact version from solc-bin (default: truffle's version)
+      version: '0.6.12', // Fetch exact version from solc-bin (default: truffle's version)
       // docker: true,        // Use "0.5.1" you've installed locally with docker (default: false)
       // settings: {          // See the solidity docs for advice about optimization and evmVersion
       //  optimizer: {
@@ -106,12 +106,12 @@ module.exports = {
       //  },
       //  evmVersion: "byzantium"
       // }
-    }
+    },
   },
   // this is required to easily verify the contracts on etherscan after deploy
   // it allows you to see the contract and interact with it through etherscan
-  plugins: ["truffle-plugin-verify"],
+  plugins: ['truffle-plugin-verify'],
   api_keys: {
-    etherscan: etherscanKey
-  }
+    etherscan: etherscanKey,
+  },
 };
