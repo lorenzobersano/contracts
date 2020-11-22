@@ -1,6 +1,7 @@
 var assert = require('assert');
 
 const TicketFactory = artifacts.require('TicketFactory.sol');
+const TemplatesRegistry = artifacts.require('TemplatesRegistry.sol');
 
 // note this is rinkeby DAI for now. We need this to be XP tokens address
 // const xpTokenAddr = "0xf80a32a835f79d7787e8a8ee5721d0feafd78108";
@@ -15,6 +16,9 @@ contract('TicketFactory', ([owner, ...accounts]) => {
 
   before(async () => {
     this.factory = await TicketFactory.new('XPFactory', 'XPF');
+
+    const templatesRegistryAddress = await this.factory.templatesRegistry();
+    this.registry = await TemplatesRegistry.at(templatesRegistryAddress);
   });
 
   it('initialized correctly', async () => {
@@ -47,21 +51,17 @@ contract('TicketFactory', ([owner, ...accounts]) => {
   });
 
   it('creates nft template correctly', async () => {
-    const ticketTemplateReceipt = await this.factory.createTicketTemplate(
+    const ticketTemplateReceipt = await this.registry.createTicketTemplate(
       '{}',
       {
         from: accounts[0],
       }
     );
 
-    const ticketTemplate = await this.factory.experienceTemplates(1);
+    const ticketTemplate = await this.registry.experienceTemplates(1);
 
     assert.strictEqual(ticketTemplate.creator, accounts[0]);
     assert.strictEqual(ticketTemplate.props, '{}');
-  });
-
-  it('returns nft templates correctly', async () => {
-    const ticketTemplates = await this.factory.getTicketTemplates.call();
   });
 
   it('uses nft template correctly', async () => {

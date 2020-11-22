@@ -9,6 +9,8 @@ import '@openzeppelin/contracts/utils/Counters.sol';
 import '@openzeppelin/contracts/utils/ReentrancyGuard.sol';
 import '@openzeppelin/contracts/access/Ownable.sol';
 
+import './TemplatesRegistry.sol';
+
 // TODO: had to remove safeMath in require checks. add back
 
 contract TicketFactory is IERC721Metadata, ERC721, Ownable, ReentrancyGuard {
@@ -17,14 +19,8 @@ contract TicketFactory is IERC721Metadata, ERC721, Ownable, ReentrancyGuard {
   Counters.Counter private tokenIds; // to keep track of the number of NFTs we have minted
 
   mapping(uint256 => bool) public expiredExperience;
-  mapping(uint256 => uint256) public ticketsToTemplates;
-
-  struct ExperienceTemplate {
-    address payable creator;
-    string props;
-  }
-
-  ExperienceTemplate[] public experienceTemplates;
+  mapping(uint256 => uint256) public ticketsToCards;
+  mapping(uint256 => uint256) public cardsToTemplates;
 
   event TicketCreated(
     uint256 ticketId,
@@ -42,6 +38,8 @@ contract TicketFactory is IERC721Metadata, ERC721, Ownable, ReentrancyGuard {
   event ExperienceEnded(uint256 experienceId);
   event PayoutSent(address addressToPay, uint256 amountToPay);
 
+  TemplatesRegistry public templatesRegistry;
+
   // we have xpCollector that later distributes the Host"s reward share so
   // that noone tries to hack us by calling functions that redirect the reward
   // to them. We control where it goes at all times
@@ -49,44 +47,7 @@ contract TicketFactory is IERC721Metadata, ERC721, Ownable, ReentrancyGuard {
     public
     ERC721(_name, _symbol)
   {
-    // Invalidate first position of array so it can't be accessed
-    ExperienceTemplate memory expTemp = ExperienceTemplate({
-      creator: address(0),
-      props: ''
-    });
-
-    experienceTemplates.push(expTemp);
-  }
-
-  function getTicketTemplates()
-    public
-    view
-    returns (ExperienceTemplate[] memory)
-  {
-    ExperienceTemplate[] memory _experienceTemplates = new ExperienceTemplate[](
-      experienceTemplates.length - 1
-    );
-
-    for (uint256 i = 1; i < experienceTemplates.length; i++) {
-      _experienceTemplates[i - 1] = experienceTemplates[i];
-    }
-
-    return _experienceTemplates;
-  }
-
-  function createTicketTemplate(string memory _props)
-    external
-    nonReentrant
-    returns (uint256 experienceTemplateId)
-  {
-    ExperienceTemplate memory expTemp = ExperienceTemplate({
-      creator: msg.sender,
-      props: _props
-    });
-
-    experienceTemplates.push(expTemp);
-
-    return experienceTemplates.length - 1;
+    templatesRegistry = new TemplatesRegistry();
   }
 
   // this function is responsible for minting the ticket NFT
@@ -112,12 +73,15 @@ contract TicketFactory is IERC721Metadata, ERC721, Ownable, ReentrancyGuard {
 
     if (_templateIndex < 0) {
       _setTokenURI(newItemId, _props);
-    } else if (uint256(_templateIndex) < experienceTemplates.length) {
+    } else if (uint256(_templateIndex) < templatesRegistry.getNumOfTemplates()) {
+      (, string memory props) = templatesRegistry.experienceTemplates(uint256(_templateIndex));
+
       _setTokenURI(
         newItemId,
-        experienceTemplates[uint256(_templateIndex)].props
+        props
       );
-      ticketsToTemplates[newItemId] = uint256(_templateIndex);
+
+      cardsToTemplates[newItemId] = uint256(_templateIndex);
     } else {
       revert('Invalid template index provided');
     }
@@ -152,6 +116,8 @@ contract TicketFactory is IERC721Metadata, ERC721, Ownable, ReentrancyGuard {
     // this is the original creator of the ticket
     _mint(ownerOf(_ticketId), guestItemId);
 
+    ticketsToCards[guestItemId] = _ticketId;
+
     // right now the properties are the same for both the guest and the host
     // we may want to change this in the future
     // also, it is not quite economically sensible to mint two NFTs. After all,
@@ -184,11 +150,9 @@ contract TicketFactory is IERC721Metadata, ERC721, Ownable, ReentrancyGuard {
 
     expiredExperience[_ticketId] = true;
 
-    if (ticketsToTemplates[_ticketId] != 0) {
-
-        address payable _addressToPay
-       = experienceTemplates[ticketsToTemplates[_ticketId]].creator;
-      _payout(_addressToPay, 1 * 1e18);
+    if (cardsToTemplates[ticketsToCards[_ticketId]] != 0) {
+      (address creator, ) = templatesRegistry.experienceTemplates(cardsToTemplates[ticketsToCards[_ticketId]]);
+      _payout(creator, 1 * 1e18);
     }
 
     emit ExperienceEnded(_ticketId);
