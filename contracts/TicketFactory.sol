@@ -58,12 +58,15 @@ contract TicketFactory is IERC721Metadata, ERC721, Ownable, ReentrancyGuard {
   // 3. description
   // 4. duration (enum Duration)
   // find the schema definition to conform to here: https://eips.ethereum.org/EIPS/eip-721
-  function createTicket(string memory _props, int256 _templateIndex)
+  function createTicket(string memory _props, int256 _templateIndex, bool _saveAsTemplate)
     external
     payable
     nonReentrant
     returns (uint256)
   {
+    if(_templateIndex > 0 && _saveAsTemplate == true)
+      revert("You can't save a card as a template if it's already a template");
+      
     address _ticketCreator = msg.sender;
 
     tokenIds.increment();
@@ -71,7 +74,7 @@ contract TicketFactory is IERC721Metadata, ERC721, Ownable, ReentrancyGuard {
 
     _mint(_ticketCreator, newItemId);
 
-    if (_templateIndex < 0) {
+    if (_templateIndex <= 0) {
       _setTokenURI(newItemId, _props);
     } else if (
       uint256(_templateIndex) < templatesRegistry.getNumOfTemplates()
@@ -85,6 +88,10 @@ contract TicketFactory is IERC721Metadata, ERC721, Ownable, ReentrancyGuard {
       cardsToTemplates[newItemId] = uint256(_templateIndex);
     } else {
       revert('Invalid template index provided');
+    }
+
+    if(_saveAsTemplate == true) {
+      templatesRegistry.createTicketTemplate(msg.sender, _props);
     }
 
     emit TicketCreated(newItemId, _ticketCreator, _props, _templateIndex);

@@ -27,7 +27,7 @@ contract('TicketFactory', ([owner, ...accounts]) => {
   });
 
   it('creates nft ticket for guest correctly', async () => {
-    const ticketReceipt = await this.factory.createTicket('{}', -1, {
+    const ticketReceipt = await this.factory.createTicket('{}', -1, false, {
       from: accounts[0],
     });
 
@@ -39,7 +39,7 @@ contract('TicketFactory', ([owner, ...accounts]) => {
   });
 
   it('creates nft ticket for host correctly', async () => {
-    const ticketReceipt = await this.factory.createTicket('{}', -1, {
+    const ticketReceipt = await this.factory.createTicket('{}', -1, false, {
       from: accounts[1],
     });
 
@@ -51,8 +51,10 @@ contract('TicketFactory', ([owner, ...accounts]) => {
   });
 
   it('creates nft template correctly', async () => {
-    const ticketTemplateReceipt = await this.registry.createTicketTemplate(
+    const ticketTemplateReceipt = await this.factory.createTicket(
       '{}',
+      0,
+      true,
       {
         from: accounts[0],
       }
@@ -65,7 +67,7 @@ contract('TicketFactory', ([owner, ...accounts]) => {
   });
 
   it('uses nft template correctly', async () => {
-    const ticketReceipt = await this.factory.createTicket('{}', 1, {
+    const ticketReceipt = await this.factory.createTicket('{}', 1, false, {
       from: accounts[0],
     });
 
@@ -78,7 +80,7 @@ contract('TicketFactory', ([owner, ...accounts]) => {
 
   it('reverts if invalid nft template index is passed', async () => {
     try {
-      const ticketReceipt = await this.factory.createTicket('{}', 999, {
+      const ticketReceipt = await this.factory.createTicket('{}', 999, false, {
         from: accounts[0],
       });
     } catch {}

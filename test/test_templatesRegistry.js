@@ -24,8 +24,10 @@ contract('TemplatesRegistry', ([owner, ...accounts]) => {
   });
 
   it('creates nft template correctly', async () => {
-    const ticketTemplateReceipt = await this.registry.createTicketTemplate(
+    const ticketTemplateReceipt = await this.factory.createTicket(
       '{}',
+      0,
+      true,
       {
         from: accounts[0],
       }
@@ -35,6 +37,19 @@ contract('TemplatesRegistry', ([owner, ...accounts]) => {
 
     assert.strictEqual(ticketTemplate.creator, accounts[0]);
     assert.strictEqual(ticketTemplate.props, '{}');
+  });
+
+  it('reverts if tries to pass an already existing nft template', async () => {
+    try {
+      const ticketTemplateReceipt = await this.factory.createTicket(
+        '{}',
+        1,
+        true,
+        {
+          from: accounts[0],
+        }
+      );
+    } catch {}
   });
 
   it('returns nft templates correctly', async () => {
@@ -49,29 +64,4 @@ contract('TemplatesRegistry', ([owner, ...accounts]) => {
     // length 2 because template at position 0 is placeholder "burned" and the one at position 1 is the one we created before
     assert.strictEqual(numOfticketTemplates, 2);
   });
-
-  it('uses nft template correctly', async () => {
-    const ticketReceipt = await this.factory.createTicket('{}', 1, {
-      from: accounts[0],
-    });
-
-    let [ticketCreatedEvent] = ticketReceipt.logs.filter(
-      ({ event }) => event === 'TicketCreated'
-    );
-
-    templateExpTicketId = ticketCreatedEvent.args.ticketId;
-  });
-
-  it('reverts if invalid nft template index is passed', async () => {
-    try {
-      const ticketReceipt = await this.factory.createTicket('{}', 999, {
-        from: accounts[0],
-      });
-    } catch {}
-  });
 });
-
-// todo:
-// 1. ensure ticket creator receives an nft
-// 2. the id counter is incremented correctly (obsolete, but just check once)
-// 3. host/guest access nft

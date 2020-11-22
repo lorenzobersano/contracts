@@ -54,31 +54,19 @@ contract TemplatesRegistry is Ownable, ReentrancyGuard {
     return _experienceTemplates;
   }
 
-  function createTicketTemplate(string memory _props)
+  function createTicketTemplate(address _creator, string memory _props)
+    onlyOwner
     external
     nonReentrant
     returns (uint256 experienceTemplateId)
   {
     ExperienceTemplate memory expTemp = ExperienceTemplate({
-      creator: msg.sender,
+      creator: _creator,
       props: _props
     });
 
     experienceTemplates.push(expTemp);
 
     return experienceTemplates.length - 1;
-  }
-
-  // This same contract is used as a treasury: DAI are sent to this contract which are
-  // in turn sent as royalties to templates creators
-  function payout(address _addressToPay, uint256 _amountToPay)
-    external
-    onlyOwner
-  {
-    ERC20 dai = ERC20(0xFf795577d9AC8bD7D90Ee22b6C1703490b6512FD); // Kovan DAI
-
-    dai.transfer(_addressToPay, _amountToPay);
-
-    emit PayoutSent(_addressToPay, _amountToPay);
   }
 }
