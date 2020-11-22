@@ -1,4 +1,5 @@
 var assert = require('assert');
+var web3 = require('web3');
 
 const TicketFactory = artifacts.require('TicketFactory.sol');
 const TemplatesRegistry = artifacts.require('TemplatesRegistry.sol');
@@ -38,6 +39,15 @@ contract('TemplatesRegistry', ([owner, ...accounts]) => {
 
   it('returns nft templates correctly', async () => {
     const ticketTemplates = await this.registry.getTicketTemplates.call();
+  });
+
+  it('returns number nft templates correctly', async () => {
+    let numOfticketTemplates = await this.registry.getNumOfTemplates.call();
+
+    numOfticketTemplates = new web3.utils.BN(numOfticketTemplates).toNumber();
+
+    // length 2 because template at position 0 is placeholder "burned" and the one at position 1 is the one we created before
+    assert.strictEqual(numOfticketTemplates, 2);
   });
 
   it('uses nft template correctly', async () => {

@@ -13,7 +13,6 @@ contract TemplatesRegistry is Ownable, ReentrancyGuard {
   mapping(uint256 => uint256) public ticketsToCards;
   mapping(uint256 => uint256) public cardsToTemplates;
 
-
   struct ExperienceTemplate {
     address creator;
     string props;
@@ -35,11 +34,7 @@ contract TemplatesRegistry is Ownable, ReentrancyGuard {
     experienceTemplates.push(expTemp);
   }
 
-  function getNumOfTemplates()
-    public
-    view
-    returns (uint256)
-  {
+  function getNumOfTemplates() public view returns (uint256) {
     return experienceTemplates.length;
   }
 
@@ -74,9 +69,12 @@ contract TemplatesRegistry is Ownable, ReentrancyGuard {
     return experienceTemplates.length - 1;
   }
 
-    // This same contract is used as a treasury: DAI are sent to this contract which are
+  // This same contract is used as a treasury: DAI are sent to this contract which are
   // in turn sent as royalties to templates creators
-  function payout(address _addressToPay, uint256 _amountToPay) external onlyOwner {
+  function payout(address _addressToPay, uint256 _amountToPay)
+    external
+    onlyOwner
+  {
     ERC20 dai = ERC20(0xFf795577d9AC8bD7D90Ee22b6C1703490b6512FD); // Kovan DAI
 
     dai.transfer(_addressToPay, _amountToPay);

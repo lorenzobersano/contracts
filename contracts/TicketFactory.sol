@@ -73,13 +73,14 @@ contract TicketFactory is IERC721Metadata, ERC721, Ownable, ReentrancyGuard {
 
     if (_templateIndex < 0) {
       _setTokenURI(newItemId, _props);
-    } else if (uint256(_templateIndex) < templatesRegistry.getNumOfTemplates()) {
-      (, string memory props) = templatesRegistry.experienceTemplates(uint256(_templateIndex));
-
-      _setTokenURI(
-        newItemId,
-        props
+    } else if (
+      uint256(_templateIndex) < templatesRegistry.getNumOfTemplates()
+    ) {
+      (, string memory props) = templatesRegistry.experienceTemplates(
+        uint256(_templateIndex)
       );
+
+      _setTokenURI(newItemId, props);
 
       cardsToTemplates[newItemId] = uint256(_templateIndex);
     } else {
@@ -151,7 +152,9 @@ contract TicketFactory is IERC721Metadata, ERC721, Ownable, ReentrancyGuard {
     expiredExperience[_ticketId] = true;
 
     if (cardsToTemplates[ticketsToCards[_ticketId]] != 0) {
-      (address creator, ) = templatesRegistry.experienceTemplates(cardsToTemplates[ticketsToCards[_ticketId]]);
+      (address creator, ) = templatesRegistry.experienceTemplates(
+        cardsToTemplates[ticketsToCards[_ticketId]]
+      );
       _payout(creator, 1 * 1e18);
     }
 
