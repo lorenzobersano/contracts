@@ -10,6 +10,7 @@ import '@openzeppelin/contracts/utils/ReentrancyGuard.sol';
 import '@openzeppelin/contracts/access/Ownable.sol';
 
 import './TemplatesRegistry.sol';
+import './IntooTVRoyalty.sol';
 
 // TODO: had to remove safeMath in require checks. add back
 
@@ -39,6 +40,7 @@ contract TicketFactory is IERC721Metadata, ERC721, Ownable, ReentrancyGuard {
   event PayoutSent(address addressToPay, uint256 amountToPay);
 
   TemplatesRegistry public templatesRegistry;
+  IntooTVRoyalty public royaltiesToken;
 
   // we have xpCollector that later distributes the Host"s reward share so
   // that noone tries to hack us by calling functions that redirect the reward
@@ -48,6 +50,7 @@ contract TicketFactory is IERC721Metadata, ERC721, Ownable, ReentrancyGuard {
     ERC721(_name, _symbol)
   {
     templatesRegistry = new TemplatesRegistry();
+    royaltiesToken = new IntooTVRoyalty(100000000);
   }
 
   // this function is responsible for minting the ticket NFT
@@ -58,15 +61,14 @@ contract TicketFactory is IERC721Metadata, ERC721, Ownable, ReentrancyGuard {
   // 3. description
   // 4. duration (enum Duration)
   // find the schema definition to conform to here: https://eips.ethereum.org/EIPS/eip-721
-  function createTicket(string memory _props, int256 _templateIndex, bool _saveAsTemplate)
-    external
-    payable
-    nonReentrant
-    returns (uint256)
-  {
-    if(_templateIndex > 0 && _saveAsTemplate == true)
+  function createTicket(
+    string memory _props,
+    int256 _templateIndex,
+    bool _saveAsTemplate
+  ) external payable nonReentrant returns (uint256) {
+    if (_templateIndex > 0 && _saveAsTemplate == true)
       revert("You can't save a card as a template if it's already a template");
-      
+
     address _ticketCreator = msg.sender;
 
     tokenIds.increment();
@@ -90,7 +92,7 @@ contract TicketFactory is IERC721Metadata, ERC721, Ownable, ReentrancyGuard {
       revert('Invalid template index provided');
     }
 
-    if(_saveAsTemplate == true) {
+    if (_saveAsTemplate == true) {
       templatesRegistry.createTicketTemplate(msg.sender, _props);
     }
 
@@ -171,9 +173,7 @@ contract TicketFactory is IERC721Metadata, ERC721, Ownable, ReentrancyGuard {
   // This same contract is used as a treasury: DAI are sent to this contract which are
   // in turn sent as royalties to templates creators
   function _payout(address _addressToPay, uint256 _amountToPay) internal {
-    ERC20 dai = ERC20(0xFf795577d9AC8bD7D90Ee22b6C1703490b6512FD); // Kovan DAI
-
-    dai.transfer(_addressToPay, _amountToPay);
+    royaltiesToken.transfer(_addressToPay, _amountToPay);
 
     emit PayoutSent(_addressToPay, _amountToPay);
   }

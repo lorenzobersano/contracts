@@ -55,8 +55,8 @@ contract TemplatesRegistry is Ownable, ReentrancyGuard {
   }
 
   function createTicketTemplate(address _creator, string memory _props)
-    onlyOwner
     external
+    onlyOwner
     nonReentrant
     returns (uint256 experienceTemplateId)
   {

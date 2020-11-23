@@ -13,7 +13,7 @@ contract PassThroughWallet is Ownable, ReentrancyGuard {
   // are better to avoid right now. Otherwise, I would not fit into my allotted 4-8 hours
 
   receive() external payable {
-    Paid(msg.sender, msg.value);
+    emit Paid(msg.sender, msg.value);
   }
 
   function withdraw(uint256 amount, address payable to)
@@ -25,7 +25,7 @@ contract PassThroughWallet is Ownable, ReentrancyGuard {
     require(address(this).balance >= amount, 'insufficient balance');
     to.transfer(amount);
 
-    Withdraw(to, amount);
+    emit Withdraw(to, amount);
 
     transferSuccess = true;
   }
