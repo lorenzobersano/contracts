@@ -12,8 +12,12 @@ import '@openzeppelin/contracts/access/Ownable.sol';
 import './TemplatesRegistry.sol';
 import './IntooTVRoyalty.sol';
 
-// TODO: had to remove safeMath in require checks. add back
-
+/**
+ * @title IntooTV TicketFactory
+ *
+ * @dev Implementation of the TicketFactory contract, which is a Factory and Registry of NFT XP Cards and XP Tickets
+ * @author IntooTV
+ */
 contract TicketFactory is IERC721Metadata, ERC721, Ownable, ReentrancyGuard {
   using Counters for Counters.Counter;
 
@@ -22,6 +26,7 @@ contract TicketFactory is IERC721Metadata, ERC721, Ownable, ReentrancyGuard {
   mapping(uint256 => bool) public expiredExperience;
   mapping(uint256 => uint256) public ticketsToCards;
   mapping(uint256 => uint256) public cardsToTemplates;
+  mapping(uint256 => bool) isHost;
 
   event TicketCreated(
     uint256 ticketId,
