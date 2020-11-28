@@ -3,22 +3,38 @@ pragma solidity ^0.6.0;
 
 import '@openzeppelin/contracts/access/Ownable.sol';
 import '@openzeppelin/contracts/utils/ReentrancyGuard.sol';
+import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
+import '@opengsn/gsn/contracts/BaseRelayRecipient.sol';
 
-import "./ProvableAPI.sol";
+import './ProvableAPI.sol';
 
-import "./StringLibrary.sol";
-import "./AddressLibrary.sol";
+import './StringLibrary.sol';
+import './AddressLibrary.sol';
+import './WadRayMath.sol';
 
-contract PassThroughWallet is ReentrancyGuard, usingProvable {
+contract PassThroughWallet is BaseRelayRecipient, ReentrancyGuard, usingProvable {
+  using WadRayMath for uint256;
   using StringLibrary for string;
   using AddressLibrary for address payable;
 
-  /// @notice Logs the address of the sender and amounts paid to the contract
-  event Paid(address indexed from, uint256 value);
+  string public override versionRecipient = "2.0.0";
+
+  constructor(address _forwarder)
+    public
+  {
+    trustedForwarder = _forwarder;
+  }
+
+  /// @notice Logs the address of the address that withdraws and amounts paid by the contract
   event Withdraw(address indexed to, uint256 value);
+  event Paid(address indexed from, uint256 value);
 
   event LogNewProvableQuery(string description);
-  event LogProvableQueryCallbackResult(address requestor, uint256 requestorBalance, uint256 amountRequested);
+  event LogProvableQueryCallbackResult(
+    address requestor,
+    uint256 requestorBalance,
+    uint256 amountRequested
+  );
   event LogProvableQueryCallbackError(string description);
 
   struct WithdrawalRequest {
@@ -40,22 +56,20 @@ contract PassThroughWallet is ReentrancyGuard, usingProvable {
     nonReentrant
     returns (bool transferSuccess)
   {
-    require(address(this).balance >= amount, 'insufficient balance');
-    to.transfer(amount);
+    IERC20 dai = IERC20(0xFf795577d9AC8bD7D90Ee22b6C1703490b6512FD); // Kovan DAI
 
-    emit Withdraw(to, amount);
+    uint256 daisToTransfer = amount.wadMul(98).wadDiv(100);
+    require(dai.balanceOf(address(this)) >= daisToTransfer, 'insufficient balance');
+
+    dai.transfer(to, daisToTransfer);
+
+    emit Withdraw(to, daisToTransfer);
 
     transferSuccess = true;
   }
 
-  function __callback(
-    bytes32 _queryId,
-    string memory _result
-  )
-    public
-    override
-  {
-    require(msg.sender == provable_cbAddress());
+  function __callback(bytes32 _queryId, string memory _result) public override {
+    require(_msgSender() == provable_cbAddress());
 
     uint256 requestorBalance = parseInt(_result);
 
@@ -64,33 +78,48 @@ contract PassThroughWallet is ReentrancyGuard, usingProvable {
 
     delete validRequests[_queryId];
 
-    if(requestorBalance >= amountRequested) {  
-      emit LogProvableQueryCallbackResult(requestor, requestorBalance, amountRequested);
+    if (requestorBalance >= amountRequested) {
+      emit LogProvableQueryCallbackResult(
+        requestor,
+        requestorBalance,
+        amountRequested
+      );
 
       _withdraw(amountRequested, requestor);
     } else {
-      emit LogProvableQueryCallbackError("Requested withdrawal is higher than requestors' balance");
+      emit LogProvableQueryCallbackError(
+        "Requested withdrawal is higher than requestors' balance"
+      );
     }
   }
 
-  function requestWithdrawal(uint256 _amount)
-    public
-  {
-    require(now - lastRequestTime[msg.sender] >= SECONDS_IN_A_DAY, "You can only request withdrawals once a day");
+  function requestWithdrawal(uint256 _amount) public {
+    require(
+      now - lastRequestTime[_msgSender()] >= SECONDS_IN_A_DAY,
+      'You can only request withdrawals once a day'
+    );
 
-    lastRequestTime[msg.sender] = now;
+    lastRequestTime[_msgSender()] = now;
 
-    if (provable_getPrice("URL") > address(this).balance) {
-      emit LogNewProvableQuery("Provable query was NOT sent, please add some ETH to cover for the query fee!");
+    if (provable_getPrice('URL') > address(this).balance) {
+      emit LogNewProvableQuery(
+        'Provable query was NOT sent, please add some ETH to cover for the query fee!'
+      );
     } else {
-      emit LogNewProvableQuery("Provable query was sent, standing by for the answer...");
-      
-      string memory apiUrlPrefix = "json(https://5qijf.sse.codesandbox.io/users/";
-      string memory apiUrl = apiUrlPrefix.append(msg.sender.toString()).append("/balance).balance");
+      emit LogNewProvableQuery(
+        'Provable query was sent, standing by for the answer...'
+      );
 
-      bytes32 queryId = provable_query("URL", apiUrl);
 
-      validRequests[queryId] = WithdrawalRequest(msg.sender, _amount);
+        string memory apiUrlPrefix
+       = 'json(https://5qijf.sse.codesandbox.io/users/';
+      string memory apiUrl = apiUrlPrefix.append(_msgSender().toString()).append(
+        '/balance).balance'
+      );
+
+      bytes32 queryId = provable_query('URL', apiUrl);
+
+      validRequests[queryId] = WithdrawalRequest(_msgSender(), _amount);
     }
   }
 }

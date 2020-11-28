@@ -6,8 +6,6 @@ import '@openzeppelin/contracts/token/ERC20/ERC20.sol';
 import '@openzeppelin/contracts/utils/ReentrancyGuard.sol';
 import '@openzeppelin/contracts/access/Ownable.sol';
 
-// TODO: had to remove safeMath in require checks. add back
-
 contract TemplatesRegistry is Ownable, ReentrancyGuard {
   mapping(uint256 => bool) public expiredExperience;
   mapping(uint256 => uint256) public ticketsToCards;

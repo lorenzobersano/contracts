@@ -8,6 +8,7 @@ import '@openzeppelin/contracts/token/ERC20/ERC20.sol';
 import '@openzeppelin/contracts/utils/Counters.sol';
 import '@openzeppelin/contracts/utils/ReentrancyGuard.sol';
 import '@openzeppelin/contracts/access/Ownable.sol';
+import '@opengsn/gsn/contracts/BaseRelayRecipient.sol';
 
 import './TemplatesRegistry.sol';
 import './IntooTVRoyalty.sol';
@@ -18,7 +19,9 @@ import './IntooTVRoyalty.sol';
  * @dev Implementation of the TicketFactory contract, which is a Factory and Registry of NFT XP Cards and XP Tickets
  * @author IntooTV
  */
-contract TicketFactory is IERC721Metadata, ERC721, Ownable, ReentrancyGuard {
+contract TicketFactory is BaseRelayRecipient, Ownable, IERC721Metadata, ERC721, ReentrancyGuard {
+  string public override versionRecipient = "2.0.0";
+
   using Counters for Counters.Counter;
 
   Counters.Counter private tokenIds; // to keep track of the number of NFTs we have minted
@@ -50,13 +53,61 @@ contract TicketFactory is IERC721Metadata, ERC721, Ownable, ReentrancyGuard {
   // we have xpCollector that later distributes the Host"s reward share so
   // that noone tries to hack us by calling functions that redirect the reward
   // to them. We control where it goes at all times
-  constructor(string memory _name, string memory _symbol)
+  constructor(string memory _name, string memory _symbol, address _forwarder)
     public
     ERC721(_name, _symbol)
   {
+    trustedForwarder = _forwarder;
+      
     templatesRegistry = new TemplatesRegistry();
     royaltiesToken = new IntooTVRoyalty(100000000);
   }
+
+      /**
+     * return the sender of this call.
+     * if the call came through our trusted forwarder, return the original sender.
+     * otherwise, return `msg.sender`.
+     * should be used in the contract anywhere instead of msg.sender
+     */
+    function _msgSender() internal override (BaseRelayRecipient, Context) view returns (address payable ret) {
+        if (msg.data.length >= 24 && isTrustedForwarder(msg.sender)) {
+            // At this point we know that the sender is a trusted forwarder,
+            // so we trust that the last bytes of msg.data are the verified sender address.
+            // extract sender address from the end of msg.data
+            assembly {
+                ret := shr(96,calldataload(sub(calldatasize(),20)))
+            }
+        } else {
+            return msg.sender;
+        }
+    }
+
+    /**
+     * return the msg.data of this call.
+     * if the call came through our trusted forwarder, then the real sender was appended as the last 20 bytes
+     * of the msg.data - so this method will strip those 20 bytes off.
+     * otherwise, return `msg.data`
+     * should be used in the contract instead of msg.data, where the difference matters (e.g. when explicitly
+     * signing or hashing the
+     */
+    function _msgData() internal override (BaseRelayRecipient, Context) virtual view returns (bytes memory ret) {
+        if (msg.data.length >= 24 && isTrustedForwarder(msg.sender)) {
+            // At this point we know that the sender is a trusted forwarder,
+            // we copy the msg.data , except the last 20 bytes (and update the total length)
+            assembly {
+                let ptr := mload(0x40)
+                // copy only size-20 bytes
+                let size := sub(calldatasize(),20)
+                // structure RLP data as <offset> <length> <bytes>
+                mstore(ptr, 0x20)
+                mstore(add(ptr,32), size)
+                calldatacopy(add(ptr,64), 0, size)
+                return(ptr, add(size,64))
+            }
+        } else {
+            return msg.data;
+        }
+    }
 
   // this function is responsible for minting the ticket NFT
   // it is the responsibility of the caller to pass the props json schema for ERC721Metadata (_props argument)
@@ -74,7 +125,7 @@ contract TicketFactory is IERC721Metadata, ERC721, Ownable, ReentrancyGuard {
     if (_templateIndex > 0 && _saveAsTemplate == true)
       revert("You can't save a card as a template if it's already a template");
 
-    address _ticketCreator = msg.sender;
+    address _ticketCreator = _msgSender();
 
     tokenIds.increment();
     uint256 newItemId = tokenIds.current();
@@ -98,7 +149,7 @@ contract TicketFactory is IERC721Metadata, ERC721, Ownable, ReentrancyGuard {
     }
 
     if (_saveAsTemplate == true) {
-      templatesRegistry.createTicketTemplate(msg.sender, _props);
+      templatesRegistry.createTicketTemplate(_msgSender(), _props);
     }
 
     emit TicketCreated(newItemId, _ticketCreator, _props, _templateIndex);
@@ -159,7 +210,7 @@ contract TicketFactory is IERC721Metadata, ERC721, Ownable, ReentrancyGuard {
       'experience already expired'
     );
     require(
-      ownerOf(_ticketId) == msg.sender,
+      ownerOf(_ticketId) == _msgSender(),
       'Only owner of NFT can expire it'
     );
 
