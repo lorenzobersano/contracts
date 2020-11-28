@@ -1,6 +1,6 @@
 const TicketFactory = artifacts.require('TicketFactory');
 
-const gsnTrustedForwarderAddress = '0x100549F0bccC2eC5De62D7f85919399D7332FCdb';
+const gsnTrustedForwarderAddress = process.env.GSN_FORWARDER_ADDRESS;
 
 module.exports = async (deployer, network, accounts) => {
   await deployer.deploy(

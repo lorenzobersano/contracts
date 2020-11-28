@@ -1,37 +1,52 @@
 var assert = require('assert');
-var web3 = require('web3');
 
 const TicketFactory = artifacts.require('TicketFactory.sol');
 const TemplatesRegistry = artifacts.require('TemplatesRegistry.sol');
 
-// note this is rinkeby DAI for now. We need this to be XP tokens address
-// const xpTokenAddr = "0xf80a32a835f79d7787e8a8ee5721d0feafd78108";
-// not this is my address
-// const xpCollector = "0x50c3374fd62dd09f18ccc01e1c20f5de66cd6dea";
-// const ticketCreator = "0xF2CfffD0D154805503E9D16C4832f960DEDa03fF";
+const { RelayProvider, resolveConfigurationGSN } = require('@opengsn/gsn');
+
+const paymasterAddress = process.env.GSN_PAYMASTER_ADDRESS;
+const trustedForwarderAddress = process.env.GSN_FORWARDER_ADDRESS;
+
+const Web3 = require('web3');
+let web3 = new Web3(new Web3.providers.HttpProvider('http://localhost:8545'));
 
 contract('TemplatesRegistry', ([owner, ...accounts]) => {
   before(async () => {
-    this.factory = await TicketFactory.new('XPFactory', 'XPF');
+    const configuration = await resolveConfigurationGSN(web3.currentProvider, {
+      paymasterAddress,
+    });
 
-    const templatesRegistryAddress = await this.factory.templatesRegistry();
+    const gsnProvider = new RelayProvider(web3.currentProvider, configuration);
+    web3 = new Web3(gsnProvider);
+
+    this.factory = await TicketFactory.new(
+      'XPFactory',
+      'XPF',
+      trustedForwarderAddress
+    );
+
+    this.factory = new web3.eth.Contract(
+      this.factory.abi,
+      this.factory.address
+    );
+
+    const templatesRegistryAddress = await this.factory.methods
+      .templatesRegistry()
+      .call();
+
     this.registry = await TemplatesRegistry.at(templatesRegistryAddress);
   });
 
   it('initialized correctly', async () => {
     const contractOwner = await this.registry.owner();
-    assert.strictEqual(contractOwner, this.factory.address);
+    assert.strictEqual(contractOwner, this.factory.options.address);
   });
 
   it('creates nft template correctly', async () => {
-    const ticketTemplateReceipt = await this.factory.createTicket(
-      '{}',
-      0,
-      true,
-      {
-        from: accounts[0],
-      }
-    );
+    await this.factory.methods.createTicket('{}', 0, true).send({
+      from: accounts[0],
+    });
 
     const ticketTemplate = await this.registry.experienceTemplates(1);
 
@@ -41,14 +56,9 @@ contract('TemplatesRegistry', ([owner, ...accounts]) => {
 
   it('reverts if tries to pass an already existing nft template', async () => {
     try {
-      const ticketTemplateReceipt = await this.factory.createTicket(
-        '{}',
-        1,
-        true,
-        {
-          from: accounts[0],
-        }
-      );
+      await this.factory.methods.createTicket('{}', 1, true).send({
+        from: accounts[0],
+      });
     } catch {}
   });
 

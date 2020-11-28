@@ -3,62 +3,67 @@ var assert = require('assert');
 const TicketFactory = artifacts.require('TicketFactory.sol');
 const TemplatesRegistry = artifacts.require('TemplatesRegistry.sol');
 
-// note this is rinkeby DAI for now. We need this to be XP tokens address
-// const xpTokenAddr = "0xf80a32a835f79d7787e8a8ee5721d0feafd78108";
-// not this is my address
-// const xpCollector = "0x50c3374fd62dd09f18ccc01e1c20f5de66cd6dea";
-// const ticketCreator = "0xF2CfffD0D154805503E9D16C4832f960DEDa03fF";
+const { RelayProvider, resolveConfigurationGSN } = require('@opengsn/gsn');
+
+const paymasterAddress = process.env.GSN_PAYMASTER_ADDRESS;
+const trustedForwarderAddress = process.env.GSN_FORWARDER_ADDRESS;
+
+const Web3 = require('web3');
+let web3 = new Web3(new Web3.providers.HttpProvider('http://localhost:8545'));
 
 contract('TicketFactory', ([owner, ...accounts]) => {
   let templateExpTicketId;
+  let expCardId;
   let guestExpTicketId;
   let hostExpTicketId;
 
   before(async () => {
-    this.factory = await TicketFactory.new('XPFactory', 'XPF');
+    const configuration = await resolveConfigurationGSN(web3.currentProvider, {
+      paymasterAddress,
+    });
 
-    const templatesRegistryAddress = await this.factory.templatesRegistry();
+    const gsnProvider = new RelayProvider(web3.currentProvider, configuration);
+    web3 = new Web3(gsnProvider);
+
+    this.factory = await TicketFactory.new(
+      'XPFactory',
+      'XPF',
+      trustedForwarderAddress
+    );
+
+    this.factory = new web3.eth.Contract(
+      this.factory.abi,
+      this.factory.address
+    );
+
+    const templatesRegistryAddress = await this.factory.methods
+      .templatesRegistry()
+      .call();
+
     this.registry = await TemplatesRegistry.at(templatesRegistryAddress);
   });
 
   it('initialized correctly', async () => {
-    const contractOwner = await this.factory.owner();
+    const contractOwner = await this.factory.methods.owner().call();
     assert.strictEqual(contractOwner, owner);
   });
 
   it('creates nft ticket for guest correctly', async () => {
-    const ticketReceipt = await this.factory.createTicket('{}', -1, false, {
-      from: accounts[0],
-    });
+    const ticketReceipt = await this.factory.methods
+      .createTicket('{}', 0, false)
+      .send({
+        from: accounts[0],
+      });
 
-    let [ticketCreatedEvent] = ticketReceipt.logs.filter(
-      ({ event }) => event === 'TicketCreated'
-    );
+    let ticketCreatedEvent = ticketReceipt.events.TicketCreated;
 
-    guestExpTicketId = ticketCreatedEvent.args.ticketId;
-  });
-
-  it('creates nft ticket for host correctly', async () => {
-    const ticketReceipt = await this.factory.createTicket('{}', -1, false, {
-      from: accounts[1],
-    });
-
-    let [ticketCreatedEvent] = ticketReceipt.logs.filter(
-      ({ event }) => event === 'TicketCreated'
-    );
-
-    hostExpTicketId = ticketCreatedEvent.args.ticketId;
+    expCardId = ticketCreatedEvent.returnValues.ticketId;
   });
 
   it('creates nft template correctly', async () => {
-    const ticketTemplateReceipt = await this.factory.createTicket(
-      '{}',
-      0,
-      true,
-      {
-        from: accounts[0],
-      }
-    );
+    await this.factory.methods.createTicket('{}', 0, true).send({
+      from: accounts[0],
+    });
 
     const ticketTemplate = await this.registry.experienceTemplates(1);
 
@@ -67,76 +72,64 @@ contract('TicketFactory', ([owner, ...accounts]) => {
   });
 
   it('uses nft template correctly', async () => {
-    const ticketReceipt = await this.factory.createTicket('{}', 1, false, {
-      from: accounts[0],
-    });
+    const ticketReceipt = await this.factory.methods
+      .createTicket('{}', 1, false)
+      .send({
+        from: accounts[0],
+      });
 
-    let [ticketCreatedEvent] = ticketReceipt.logs.filter(
-      ({ event }) => event === 'TicketCreated'
-    );
+    let ticketCreatedEvent = ticketReceipt.events.TicketCreated;
 
-    templateExpTicketId = ticketCreatedEvent.args.ticketId;
+    templateExpTicketId = ticketCreatedEvent.returnValues.ticketId;
   });
 
   it('reverts if invalid nft template index is passed', async () => {
     try {
-      const ticketReceipt = await this.factory.createTicket('{}', 999, false, {
+      await this.factory.methods.createTicket('{}', 999, false).send({
         from: accounts[0],
       });
     } catch {}
   });
 
   it('creates access to event nfts correctly', async () => {
-    const createAccessToEventReceipt = await this.factory.createAccessToEvent(
-      guestExpTicketId,
-      '{}',
-      accounts[1],
-      {
+    const createAccessToEventReceipt = await this.factory.methods
+      .createAccessToEvent(expCardId, '{}', accounts[1])
+      .send({
         from: accounts[0],
-      }
-    );
+      });
+
+    let ticketAccessCreatedEvent =
+      createAccessToEventReceipt.events.ExperienceMatchingCreated;
+
+    guestExpTicketId =
+      ticketAccessCreatedEvent.returnValues.guestExperienceAccessId;
+    hostExpTicketId =
+      ticketAccessCreatedEvent.returnValues.hostExperienceAccessId;
   });
 
   it('expires guest event nft correctly', async () => {
-    const expireEventReceipt = await this.factory.expireExperience(
-      guestExpTicketId,
-      {
-        from: accounts[0],
-      }
-    );
+    await this.factory.methods.expireExperience(guestExpTicketId).send({
+      from: accounts[0],
+    });
   });
 
   it('expires host event nft correctly', async () => {
-    const expireEventReceipt = await this.factory.expireExperience(
-      hostExpTicketId,
-      {
-        from: accounts[1],
-      }
-    );
+    await this.factory.methods.expireExperience(hostExpTicketId).send({
+      from: accounts[1],
+    });
   });
 
   it('reverts if it is not the exp owner to ask for expiration', async () => {
     try {
-      const expireEventReceipt = await this.factory.expireExperience(
-        hostExpTicketId,
-        {
-          from: accounts[2],
-        }
-      );
+      await this.factory.methods.expireExperience(hostExpTicketId).send({
+        from: accounts[2],
+      });
     } catch {}
   });
 
   it('sends fees to template creator when exp created with template', async () => {
-    const expireEventReceipt = await this.factory.expireExperience(
-      templateExpTicketId,
-      {
-        from: accounts[0],
-      }
-    );
+    await this.factory.methods.expireExperience(templateExpTicketId).send({
+      from: accounts[0],
+    });
   });
 });
-
-// todo:
-// 1. ensure ticket creator receives an nft
-// 2. the id counter is incremented correctly (obsolete, but just check once)
-// 3. host/guest access nft

@@ -170,7 +170,7 @@ contract TicketFactory is BaseRelayRecipient, Ownable, IERC721Metadata, ERC721, 
     string memory _props,
     address host
   ) external nonReentrant returns (bool) {
-    require(_ticketId < tokenIds.current(), 'no such experience token');
+    require(_ticketId <= tokenIds.current(), 'no such experience card');
     require(expiredExperience[_ticketId] == false, 'experience expired');
 
     tokenIds.increment();
@@ -204,7 +204,7 @@ contract TicketFactory is BaseRelayRecipient, Ownable, IERC721Metadata, ERC721, 
   }
 
   function expireExperience(uint256 _ticketId) external nonReentrant {
-    require(_ticketId < tokenIds.current(), 'no such experience token');
+    require(_ticketId <= tokenIds.current(), 'no such experience token');
     require(
       expiredExperience[_ticketId] == false,
       'experience already expired'
